@@ -30,20 +30,21 @@ export class Wallet {
     async init(params) {
         const { mnemonic, password } = params;
         await this.db.open();
+        const coinType = this.getCoinType();
         if (!mnemonic) {
             const freshMnemonic = generateMnemonic();
             const seed = mnemonicToSeedSync(freshMnemonic).toString('hex');
             this.masterKey = bip32.fromSeed(Buffer.from(seed, 'hex'));
             await this.setPassword(password ?? DEFAULT_ENCRYPTION_PASSWORD);
             for (let i = 0; i < this.lookahead; i++) {
-                await this.deriveAddress(`m/84'/0'/0'/0/${i}`);
+                await this.deriveAddress(`m/84'/${coinType}'/0'/0/${i}`);
             }
         } else {
             const seed = mnemonicToSeedSync(mnemonic).toString('hex');
             this.masterKey = bip32.fromSeed(Buffer.from(seed, 'hex'));
             this.setPassword(password ?? DEFAULT_ENCRYPTION_PASSWORD);
             for (let i = 0; i < this.lookahead; i++) {
-                await this.deriveAddress(`m/84'/0'/0'/0/${i}`);
+                await this.deriveAddress(`m/84'/${coinType}'/0'/0/${i}`);
             }
         }
     }
@@ -72,14 +73,15 @@ export class Wallet {
         return address;
     }
     async deriveReceiveAddress() {
-        const nextPath = `m/84'/0'/0'/0/${this.receiveDepth + this.lookahead}`;
+        const coinType = this.getCoinType();
+        const nextPath = `m/84'/${coinType}'/0'/0/${this.receiveDepth + this.lookahead}`;
         await this.deriveAddress(nextPath);
-        const address = await this.db.getAddressFromPath(`m/84'/0'/0'/0/${this.receiveDepth}`);
+        const address = await this.db.getAddressFromPath(`m/84'/${coinType}'/0'/0/${this.receiveDepth}`);
         this.receiveDepth++;
         return address;
     }
     async deriveChangeAddress() {
-        const path = `m/84'/0'/0'/1/${this.changeDepth}`;
+        const path = `m/84'/${this.getCoinType()}'/0'/1/${this.changeDepth}`;
         const address = await this.deriveAddress(path);
         this.changeDepth++;
         return address;

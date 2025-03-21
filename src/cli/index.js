@@ -58,7 +58,7 @@ program
     .command('create')
     .description('Create a new wallet')
     .option('-p, --path <path>', 'Path to store the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest, ')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'regtest')
     .action(async (options) => {
     try {
         const wallet = await initWallet(options);
@@ -80,7 +80,7 @@ program
     .command('import')
     .description('Import a wallet using mnemonic')
     .option('-p, --path <path>', 'Path to store the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'testnet')
     .option('-m, --mnemonic <mnemonic>', 'Mnemonic seed phrase')
     .action(async (options) => {
     try {
@@ -107,7 +107,7 @@ program
     .command('open')
     .description('Open an existing wallet')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'testnet')
     .option('--password <password>', 'Wallet password')
     .action(async (options) => {
     try {
@@ -130,7 +130,6 @@ program
     .command('balance')
     .description('Get wallet balance')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
     .option('--password <password>', 'Wallet password')
     .action(async (options) => {
     try {
@@ -156,7 +155,7 @@ program
     .command('address')
     .description('Generate a new receive address')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .action(async (options) => {
     try {
@@ -181,7 +180,7 @@ program
     .command('silent-address')
     .description('Generate a silent payment address')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .action(async (options) => {
     try {
@@ -206,7 +205,7 @@ program
     .command('send')
     .description('Send bitcoin')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .option('-a, --address <address>', 'Destination address')
     .option('-s, --amount <amount>', 'Amount in BTC')
@@ -261,7 +260,7 @@ program
     .command('scan')
     .description('Scan for transactions')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'testnet')
     .option('--password <password>', 'Wallet password')
     .action(async (options) => {
     try {
@@ -272,6 +271,7 @@ program
         console.log(chalk.yellow('Scanning for transactions...'));
         await wallet.scan();
         console.log(chalk.green('Scan completed!'));
+        console.log("Wallet balance: ", await wallet.getBalance());
         await wallet.close();
     }
     catch (error) {
@@ -287,7 +287,7 @@ program
     .command('mine')
     .description('Mine some blocks for regtest to fund the wallet')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .option('-b, --blocks <blocks>', 'Number of blocks to mine', '150')
     .action(async (options) => {
