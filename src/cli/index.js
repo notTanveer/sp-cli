@@ -58,7 +58,7 @@ program
     .command('create')
     .description('Create a new wallet')
     .option('-p, --path <path>', 'Path to store the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest, ')
     .action(async (options) => {
     try {
         const wallet = await initWallet(options);
@@ -156,7 +156,7 @@ program
     .command('address')
     .description('Generate a new receive address')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .action(async (options) => {
     try {
@@ -181,7 +181,7 @@ program
     .command('silent-address')
     .description('Generate a silent payment address')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .action(async (options) => {
     try {
@@ -206,7 +206,7 @@ program
     .command('send')
     .description('Send bitcoin')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .option('-a, --address <address>', 'Destination address')
     .option('-s, --amount <amount>', 'Amount in BTC')
@@ -216,12 +216,28 @@ program
             console.error(chalk.red('Address and amount are required'));
             return;
         }
+        
+        // Verify address prefix matches network
+        const isSilentPayment = options.address.startsWith('sp1') || options.address.startsWith('tsp1');
+        if (!isSilentPayment) {
+            const isMainnet = options.address.startsWith('bc1') || options.address.startsWith('1') || options.address.startsWith('3');
+            const isTestnet = options.address.startsWith('tb1') || options.address.startsWith('m') || options.address.startsWith('n') || options.address.startsWith('2');
+            const isRegtest = options.address.startsWith('bcrt1');
+            
+            // Check for network mismatch
+            if ((options.network === 'regtest' && !isRegtest) || 
+                (options.network === 'testnet' && !isTestnet) || 
+                (options.network === 'main' && !isMainnet)) {
+                console.error(chalk.red(`Address prefix doesn't match the selected network (${options.network})`));
+                return;
+            }
+        }
+        
         const wallet = await initWallet(options);
         await wallet.init({
             password: options.password,
         });
         const amount = Math.round(parseFloat(options.amount) * 100000000);
-        const isSilentPayment = options.address.startsWith('sp1') || options.address.startsWith('tsp1');
         let txid;
         if (isSilentPayment) {
             txid = await wallet.sendToSilentAddress(options.address, amount);
@@ -271,7 +287,7 @@ program
     .command('mine')
     .description('Mine some blocks for regtest to fund the wallet')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (mainnet, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .option('-b, --blocks <blocks>', 'Number of blocks to mine', '150')
     .action(async (options) => {
@@ -281,7 +297,10 @@ program
             await wallet.init({ password: options.password });
             const newAddress = await wallet.deriveReceiveAddress();
             console.log(chalk.yellow(`Mining ${blocks} blocks to address: ${newAddress}`));
-            const rpc = new BitcoinRpcClient();
+            
+            // Pass the network option to the BitcoinRpcClient
+            const rpc = new BitcoinRpcClient(options.network);
+            
             const result = await rpc.mineToAddress(blocks, newAddress);
             console.log(chalk.green(`Mined ${blocks} blocks: ${result.join(', ')}`));
             await wallet.scan();
@@ -296,4 +315,5 @@ program
             }
         }
     });
+
 program.parse(process.argv);

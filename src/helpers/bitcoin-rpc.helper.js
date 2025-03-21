@@ -4,10 +4,30 @@ export class BitcoinRpcClient {
     url;
     config;
 
-    constructor() {
-        const user = process.env.BITCOIN_RPC_USER;
-        const password = process.env.BITCOIN_RPC_PASSWORD;
-        const host = process.env.BITCOIN_RPC_HOST;
+    constructor(network = 'regtest') {
+        let user = process.env.BITCOIN_RPC_USER;
+        let password = process.env.BITCOIN_RPC_PASSWORD;
+        let host = process.env.BITCOIN_RPC_HOST;
+        
+        // Set defaults based on network if env vars not provided
+        if (!user || !password || !host) {
+            if (network === 'regtest') {
+                user = 'alice';
+                password = 'password';
+                host = 'localhost:18443';
+            } else if (network === 'testnet') {
+                // Testnet defaults if needed
+                user = 'user';
+                password = 'password';
+                host = 'localhost:18332';
+            } else if (network === 'main') {
+                // Mainnet defaults if needed
+                user = 'user';
+                password = 'password';
+                host = 'localhost:8332';
+            }
+        }
+        
         this.url = `http://${user}:${password}@${host}`;
         this.config = {
             method: 'POST',
@@ -50,6 +70,7 @@ export class BitcoinRpcClient {
             }
         }
     }
+
 
     async request(config) {
         try {
