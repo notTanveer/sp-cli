@@ -66,10 +66,14 @@ export class EsploraClient {
         });
     }
     async getUTXOs(address) {
-        return (await this.request({
+        const data = await this.request({
             method: 'GET',
             url: `${this.url}/address/${address}/utxo`,
-        })).map((utxo) => new Coin({ ...utxo, address }));
+        });
+        if (!Array.isArray(data)) {
+            return [];
+        }
+        return data.map((utxo) => new Coin({ ...utxo, address }));
     }
     async getFeeRate() {
         return (await this.request({

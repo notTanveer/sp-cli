@@ -87,9 +87,35 @@ export class Wallet {
         return address;
     }
     async scan() {
-        const addresses = await this.db.getAllAddresses();
-        const coins = (await Promise.all(addresses.map((address) => this.network.getUTXOs(address)))).reduce((acc, utxos) => [...acc, ...utxos], []);
-        await this.db.saveUnspentCoins(coins);
+        try {
+            // Get all addresses in the wallet
+            const addresses = await this.db.getAllAddresses();
+            
+            if (!addresses || addresses.length === 0) {
+                console.log("No addresses to scan");
+                return;
+            }
+            
+            // Collect UTXOs for each address
+            const utxoPromises = addresses.map(address => this.network.getUTXOs(address));
+            const utxoResults = await Promise.all(utxoPromises);
+            
+            // Filter out undefined results and flatten the array
+            const coins = utxoResults
+                .filter(utxos => Array.isArray(utxos)) // Ensure each result is an array
+                .reduce((acc, utxos) => [...acc, ...utxos], []);
+            
+            if (coins.length > 0) {
+                // Save the coins to the database
+                await this.db.saveUnspentCoins(coins);
+                console.log(`Found ${coins.length} UTXOs`);
+            } else {
+                console.log("No UTXOs found");
+            }
+        } catch (error) {
+            console.error("Error during scan:", error);
+            throw new Error(`Scan failed: ${error.message}`);
+        }
     }
     async getBalance() {
         const coins = await this.db.getUnspentCoins();
@@ -97,20 +123,47 @@ export class Wallet {
     }
     async signTransaction(psbt, coins) {
         for (let index = 0; index < coins.length; index++) {
-            const path = await this.db.getPathFromAddress(coins[index].address);
-            const privateKey = this.masterKey.derivePath(path);
-            psbt.signInput(index, privateKey);
+            try {
+                const coin = coins[index];
+                const path = await this.db.getPathFromAddress(coin.address);
+                
+                if (!path) {
+                    throw new Error(`Path not found for address: ${coin.address}`);
+                }
+                
+                // Derive the key using the correct path
+                const childNode = this.masterKey.derivePath(path);
+                
+                // Create ECPair from the private key
+                const keyPair = ECPair.fromPrivateKey(childNode.privateKey, { 
+                    network: this.network.network 
+                });
+                
+                // Sign the input with the keyPair
+                psbt.signInput(index, keyPair);
+            } catch (error) {
+                throw new Error(`Error signing input ${index}: ${error.message}`);
+            }
         }
     }
     async createAndSignTransaction(addresses) {
         const totalAmount = addresses.reduce((acc, address) => acc + address.amount, 0);
         const coins = await this.db.getUnspentCoins();
+        
+        if (!coins || coins.length === 0) {
+            throw new Error('No unspent coins available');
+        }
+        
         const totalBalance = coins.reduce((acc, coin) => acc + coin.value, 0);
+        
         if (totalAmount > totalBalance) {
             throw new Error(`Insufficient funds. Available: ${totalBalance} sats, Requested: ${totalAmount} sats`);
         }
+        
         const tx = new Transaction();
         const psbt = new Psbt({ network: this.network.network });
+        
+        // Add outputs first
         addresses.forEach(({ address, amount }) => {
             tx.addOutput(toOutputScript(address, this.network.network), amount);
             psbt.addOutput({
@@ -118,8 +171,11 @@ export class Wallet {
                 value: amount,
             });
         });
+        
+        // Select coins and add change if needed
         const coinSelector = new CoinSelector(await this.network.getFeeRate());
         const { coins: selectedCoins, change } = coinSelector.select(coins, tx);
+        
         if (change > 0) {
             const changeAddress = await this.deriveChangeAddress();
             psbt.addOutput({
@@ -127,13 +183,23 @@ export class Wallet {
                 value: change,
             });
         }
+        
+        // Add inputs
         for (const coin of selectedCoins) {
             psbt.addInput(coin.toInput(this.network.network));
         }
+        
+        // Sign the transaction
         await this.signTransaction(psbt, selectedCoins);
-        if (!psbt.validateSignaturesOfAllInputs((pubkey, msghash, signature) => ECPair.fromPublicKey(pubkey).verify(msghash, signature))) {
+        
+        // Validate and finalize
+        if (!psbt.validateSignaturesOfAllInputs((pubkey, msghash, signature) => {
+            const keyPair = ECPair.fromPublicKey(pubkey);
+            return keyPair.verify(msghash, signature);
+        })) {
             throw new Error('Invalid signature');
         }
+        
         psbt.finalizeAllInputs();
         return psbt.extractTransaction();
     }

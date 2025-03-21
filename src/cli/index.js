@@ -208,7 +208,7 @@ program
     .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .option('-a, --address <address>', 'Destination address')
-    .option('-s, --amount <amount>', 'Amount in BTC')
+    .option('--amount <amount>', 'Amount in BTC')
     .action(async (options) => {
     try {
         if (!options.address || !options.amount) {
@@ -236,7 +236,14 @@ program
         await wallet.init({
             password: options.password,
         });
+        
+        // Make sure the wallet has been scanned for UTXOs
+        console.log(chalk.yellow('Scanning for available UTXOs...'));
+        await wallet.scan();
+        
         const amount = Math.round(parseFloat(options.amount) * 100000000);
+        console.log(chalk.yellow(`Sending ${amount} satoshis to ${options.address}...`));
+        
         let txid;
         if (isSilentPayment) {
             txid = await wallet.sendToSilentAddress(options.address, amount);
@@ -295,17 +302,30 @@ program
             const blocks = parseInt(options.blocks, 10);
             const wallet = await initWallet(options);
             await wallet.init({ password: options.password });
+            
+            // Use the most recent address for mining
             const newAddress = await wallet.deriveReceiveAddress();
             console.log(chalk.yellow(`Mining ${blocks} blocks to address: ${newAddress}`));
             
             // Pass the network option to the BitcoinRpcClient
             const rpc = new BitcoinRpcClient(options.network);
             
+            // Mine blocks to the address
             const result = await rpc.mineToAddress(blocks, newAddress);
             console.log(chalk.green(`Mined ${blocks} blocks: ${result.join(', ')}`));
+            
+            // Wait a moment for the Bitcoin node to process the blocks
+            console.log(chalk.yellow('Waiting for blocks to be processed...'));
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Scan for new transactions with a more robust approach
+            console.log(chalk.yellow('Scanning for new transactions...'));
             await wallet.scan();
+            
+            // Get and display the updated balance
             const balance = await wallet.getBalance();
             console.log(chalk.green(`Balance after mining: ${balance / 1e8} BTC (${balance} satoshis)`));
+            
             await wallet.close();
         } catch (error) {
             if (error instanceof Error) {

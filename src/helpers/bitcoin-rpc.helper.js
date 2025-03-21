@@ -42,22 +42,24 @@ export class BitcoinRpcClient {
         try {
             await this.createWallet('default');
         } catch (e) {
-            if (e.message.includes('Database already exists.')) {
+            if (e.message?.includes('Database already exists.')) {
                 loadWallet = true;
             } else {
                 throw e;
             }
         }
+        
         try {
             const result = await this.getWalletInfo();
             if (result['walletname'] === 'default') {
                 loadWallet = false;
             }
         } catch (e) {
-            if (!e.message.includes('No wallet is loaded.')) {
+            if (!e.message?.includes('No wallet is loaded.')) {
                 throw e;
             }
         }
+        
         try {
             if (loadWallet) {
                 await this.loadWallet('default');
@@ -65,12 +67,11 @@ export class BitcoinRpcClient {
                 await this.mineToAddress(150, address);
             }
         } catch (e) {
-            if (!e.message.includes('Unable to obtain an exclusive lock on the database')) {
+            if (!e.message?.includes('Unable to obtain an exclusive lock on the database')) {
                 throw e;
             }
         }
     }
-
 
     async request(config) {
         try {
@@ -81,7 +82,7 @@ export class BitcoinRpcClient {
             return response.data?.result;
         } catch (e) {
             if (e instanceof AxiosError) {
-                if (e.response?.data.error) {
+                if (e.response?.data?.error) {
                     throw new Error(e.response.data.error.message);
                 } else {
                     throw new Error(e.message);
@@ -133,13 +134,25 @@ export class BitcoinRpcClient {
     }
 
     async mineToAddress(numBlocks, address) {
-        return await this.request({
-            url: this.url,
-            data: {
-                method: 'generatetoaddress',
-                params: [numBlocks, address],
-            },
-        });
+        try {
+            // Generate the blocks
+            const blockHashes = await this.request({
+                url: this.url,
+                data: {
+                    method: 'generatetoaddress',
+                    params: [numBlocks, address],
+                },
+            });
+            
+            // If successful, wait a moment for processing
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Return the array of block hashes
+            return blockHashes || [];
+        } catch (error) {
+            console.error('Error mining blocks:', error);
+            throw error;
+        }
     }
 
     async sendToAddress(address, amount) {
@@ -158,6 +171,26 @@ export class BitcoinRpcClient {
             data: {
                 method: 'getmempoolentry',
                 params: [txid],
+            },
+        });
+    }
+    
+    async getBlockHash(height) {
+        return await this.request({
+            url: this.url,
+            data: {
+                method: 'getblockhash',
+                params: [height],
+            },
+        });
+    }
+    
+    async getBlock(hash) {
+        return await this.request({
+            url: this.url,
+            data: {
+                method: 'getblock',
+                params: [hash],
             },
         });
     }
