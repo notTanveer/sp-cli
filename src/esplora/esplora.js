@@ -82,11 +82,26 @@ export class EsploraClient {
         }))[1];
     }
     async broadcast(txHex) {
-        await this.request({
-            method: 'POST',
-            url: `${this.url}/tx`,
-            data: txHex,
-        });
+        try {
+            const result = await this.request({
+                method: 'POST',
+                url: `${this.url}/tx`,
+                data: txHex,
+            });
+            
+            // Wait a moment for the transaction to propagate to mempool
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // If we got here without an error being thrown, the broadcast was successful
+            console.log(`Transaction successfully broadcast: ${result || "success"}`);
+            return true;
+        } catch (error) {
+            console.error(`Error broadcasting transaction: ${error.message}`);
+            if (error.response?.data) {
+                console.error(`Response data: ${JSON.stringify(error.response.data)}`);
+            }
+            throw new Error(`Failed to broadcast transaction: ${error.message}`);
+        }
     }
 }
 //# sourceMappingURL=esplora.js.map

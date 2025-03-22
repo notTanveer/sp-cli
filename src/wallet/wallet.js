@@ -264,8 +264,34 @@ export class Wallet {
     }
     async send(address, amount) {
         const tx = await this.createAndSignTransaction([{ address, amount }]);
-        await this.network.broadcast(tx.toHex());
-        return tx.getId();
+        const txid = tx.getId();
+        
+        try {
+            console.log(`Broadcasting transaction ${txid}...`);
+            await this.network.broadcast(tx.toHex());
+            
+            // Update the wallet's UTXO set to reflect the sent transaction
+            const coins = await this.db.getUnspentCoins();
+            const usedTxIds = new Set();
+            
+            // Mark spent UTXOs by recording the tx inputs
+            tx.ins.forEach(input => {
+                usedTxIds.add(Buffer.from(input.hash).reverse().toString('hex') + ':' + input.index);
+            });
+            
+            // Filter out spent UTXOs
+            const remainingCoins = coins.filter(coin => 
+                !usedTxIds.has(`${coin.txid}:${coin.vout}`)
+            );
+            
+            // Save the updated set of UTXOs
+            await this.db.saveUnspentCoins(remainingCoins);
+            
+            return txid;
+        } catch (error) {
+            console.error(`Broadcasting failed: ${error.message}`);
+            throw error;
+        }
     }
     async sendToSilentAddress(address, amount) {
         const coins = await this.db.getUnspentCoins();
@@ -359,8 +385,34 @@ export class Wallet {
         }
         psbt.finalizeAllInputs();
         const tx = psbt.extractTransaction();
-        await this.network.broadcast(tx.toHex());
-        return tx.getId();
+        const txid = tx.getId();
+        
+        try {
+            console.log(`Broadcasting silent payment transaction ${txid}...`);
+            await this.network.broadcast(tx.toHex());
+            
+            // Update the wallet's UTXO set to reflect the sent transaction
+            const coins = await this.db.getUnspentCoins();
+            const usedTxIds = new Set();
+            
+            // Mark spent UTXOs
+            tx.ins.forEach(input => {
+                usedTxIds.add(Buffer.from(input.hash).reverse().toString('hex') + ':' + input.index);
+            });
+            
+            // Filter out spent UTXOs
+            const remainingCoins = coins.filter(coin => 
+                !usedTxIds.has(`${coin.txid}:${coin.vout}`)
+            );
+            
+            // Save the updated set of UTXOs
+            await this.db.saveUnspentCoins(remainingCoins);
+            
+            return txid;
+        } catch (error) {
+            console.error(`Broadcasting failed: ${error.message}`);
+            throw error;
+        }
     }
     getCoinType() {
         return this.network.network.bech32 === bitcoin.bech32 ? 0 : 1;
