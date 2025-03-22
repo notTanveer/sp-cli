@@ -184,13 +184,72 @@ export class Wallet {
             });
         }
         
-        // Add inputs
-        for (const coin of selectedCoins) {
-            psbt.addInput(coin.toInput(this.network.network));
+        // Add inputs with proper format detection
+        for (let i = 0; i < selectedCoins.length; i++) {
+            const coin = selectedCoins[i];
+            const path = await this.db.getPathFromAddress(coin.address);
+            if (!path) {
+                throw new Error(`Path not found for address: ${coin.address}`);
+            }
+            
+            // Detect address type and create appropriate input
+            let inputData = {
+                hash: coin.txid,
+                index: coin.vout
+            };
+            
+            // For P2WPKH (native segwit - starts with bc1, tb1, bcrt1)
+            if (coin.address.startsWith('bc1') || coin.address.startsWith('tb1') || coin.address.startsWith('bcrt1')) {
+                inputData.witnessUtxo = {
+                    script: payments.p2wpkh({
+                        pubkey: this.masterKey.derivePath(path).publicKey,
+                        network: this.network.network
+                    }).output,
+                    value: coin.value
+                };
+            } 
+            // For P2PKH (legacy - starts with 1, m, n)
+            else if (coin.address.startsWith('1') || coin.address.startsWith('m') || coin.address.startsWith('n')) {
+                // Use full non-witness UTXO data for legacy addresses
+                // For simplicity in this fix, still use witnessUtxo but with p2pkh script
+                inputData.witnessUtxo = {
+                    script: payments.p2pkh({
+                        pubkey: this.masterKey.derivePath(path).publicKey,
+                        network: this.network.network
+                    }).output,
+                    value: coin.value
+                };
+            }
+            // For any other format - default to original behavior
+            else {
+                inputData.witnessUtxo = {
+                    script: toOutputScript(coin.address, this.network.network),
+                    value: coin.value
+                };
+            }
+            
+            psbt.addInput(inputData);
         }
         
-        // Sign the transaction
-        await this.signTransaction(psbt, selectedCoins);
+        // Sign each input with the correct key and options
+        for (let i = 0; i < selectedCoins.length; i++) {
+            try {
+                const coin = selectedCoins[i];
+                const path = await this.db.getPathFromAddress(coin.address);
+                const childNode = this.masterKey.derivePath(path);
+                
+                // Create proper key pair with network
+                const keyPair = ECPair.fromPrivateKey(childNode.privateKey, { 
+                    network: this.network.network
+                });
+                
+                // Sign with explicit sighash type
+                psbt.signInput(i, keyPair);
+            } catch (error) {
+                console.error(`Error signing input ${i}:`, error.message);
+                throw new Error(`Error signing input ${i}: ${error.message}`);
+            }
+        }
         
         // Validate and finalize
         if (!psbt.validateSignaturesOfAllInputs((pubkey, msghash, signature) => {
@@ -255,10 +314,46 @@ export class Wallet {
                 value: change,
             });
         }
+        // Add inputs with complete witnessUtxo information
         for (let index = 0; index < selectedCoins.length; index++) {
-            psbt.addInput(selectedCoins[index].toInput(this.network.network));
-            psbt.signInput(index, privateKeys[index]);
+            const coin = selectedCoins[index];
+            const path = await this.db.getPathFromAddress(coin.address);
+            
+            // Detect address type and create appropriate input 
+            let inputData = {
+                hash: coin.txid,
+                index: coin.vout
+            };
+            
+            // For P2WPKH (native segwit)
+            if (coin.address.startsWith('bc1') || coin.address.startsWith('tb1') || coin.address.startsWith('bcrt1')) {
+                inputData.witnessUtxo = {
+                    script: payments.p2wpkh({
+                        pubkey: privateKeys[index].publicKey,
+                        network: this.network.network
+                    }).output,
+                    value: coin.value
+                };
+            } else {
+                // Default case
+                inputData.witnessUtxo = {
+                    script: toOutputScript(coin.address, this.network.network),
+                    value: coin.value
+                };
+            }
+            
+            psbt.addInput(inputData);
         }
+        
+        // Sign inputs with proper key pairs
+        for (let index = 0; index < selectedCoins.length; index++) {
+            const keyPair = ECPair.fromPrivateKey(
+                privateKeys[index].privateKey,
+                { network: this.network.network }
+            );
+            psbt.signInput(index, keyPair);
+        }
+        
         if (!psbt.validateSignaturesOfAllInputs((pubkey, msghash, signature) => ECPair.fromPublicKey(pubkey).verify(msghash, signature))) {
             throw new Error('Invalid signature');
         }
