@@ -8,6 +8,8 @@ import { Wallet } from '../wallet/index.js';
 import { WalletDB } from '../level/index.js';
 import { EsploraClient } from '../esplora/index.js';
 import { BitcoinRpcClient } from '../helpers/bitcoin-rpc.helper.js';
+import figlet from 'figlet';
+import gradient from 'gradient-string';
 
 const DEFAULT_WALLET_PATH = path.join(os.homedir(), '.sp');
 const program = new Command();
@@ -329,5 +331,39 @@ program
             }
         }
     });
+
+program
+    .command('greet')
+    .description('Greet the user')
+    .action(() => {
+        console.clear();
+        const msg = 'Welcome to Silent Payments Workshop!';
+        figlet.text(msg, (err, data) => {
+            if (err) {
+                console.error(chalk.red('Something went wrong...'));
+                console.dir(err);
+                return;
+            }
+            console.log(gradient.pastel.multiline(data));
+        }
+    );
+});
+
+program
+    .command('bye')
+    .description('Greet the user')
+    .action(() => {
+        console.clear();
+        const msg = 'See you next time!';
+        figlet.text(msg, (err, data) => {
+            if (err) {
+                console.error(chalk.red('Something went wrong...'));
+                console.dir(err);
+                return;
+            }
+            console.log(gradient.pastel.multiline(data));
+        }
+    );
+});
 
 program.parse(process.argv);
