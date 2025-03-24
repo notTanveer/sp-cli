@@ -1,5 +1,5 @@
 {
-  "name": "sp-cli",
+  "name": "silentpay-cli",
   "author": "Tanveer",
   "license": "MIT",
   "homepage": "https://github.com/Bitshala-Incubator/silent-pay",
@@ -13,6 +13,9 @@
   "bin": {
     "sp": "./src/cli/index.js"
   },
+  "scripts": {
+    "start": "node ./src/cli/index.js"
+  },
   "keywords": [
     "silent payments",
     "bitcoin"
@@ -21,7 +24,7 @@
   "workspaces": [
     "./src/*"
   ],
-  "version": "0.0.0",
+  "version": "0.0.1",
   "dependencies": {
     "axios": "^1.6.3",
     "bech32": "^2.0.0",
