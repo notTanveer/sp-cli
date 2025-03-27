@@ -30,7 +30,7 @@ const initWallet = async (options) => {
     walletDB = new WalletDB({
         location: walletPath,
     });
-    const network = options.network || 'testnet';
+    const network = options.network || 'regtest';
     let esploraUrl;
     switch (network) {
         case 'main':
@@ -82,7 +82,7 @@ program
     .command('import')
     .description('Import a wallet using mnemonic')
     .option('-p, --path <path>', 'Path to store the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'regtest')
     .option('-m, --mnemonic <mnemonic>', 'Mnemonic seed phrase')
     .action(async (options) => {
     try {
@@ -109,7 +109,7 @@ program
     .command('open')
     .description('Open an existing wallet')
     .option('-p, --path <path>', 'Path to the wallet data')
-    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'testnet')
+    .option('-n, --network <network>', 'Bitcoin network (main, testnet, regtest)', 'regtest')
     .option('--password <password>', 'Wallet password')
     .action(async (options) => {
     try {

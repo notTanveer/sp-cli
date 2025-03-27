@@ -24,7 +24,7 @@
   "workspaces": [
     "./src/*"
   ],
-  "version": "0.0.1",
+  "version": "0.0.2",
   "dependencies": {
     "axios": "^1.6.3",
     "bech32": "^2.0.0",
