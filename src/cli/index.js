@@ -18,7 +18,7 @@ let walletDB;
 program
     .name('sp')
     .description('CLI for managing Bitcoin silent payments')
-    .version('0.0.1');
+    .version('0.0.4');
 const ensureWalletDir = (walletPath) => {
     if (!fs.existsSync(walletPath)) {
         fs.mkdirSync(walletPath, { recursive: true });
@@ -337,7 +337,7 @@ program
     .description('Greet the user')
     .action(() => {
         console.clear();
-        const msg = 'Welcome to Silent Payments Workshop!';
+        const msg = 'Welcome to \n SP Workshop!';
         figlet.text(msg, (err, data) => {
             if (err) {
                 console.error(chalk.red('Something went wrong...'));
