@@ -18,7 +18,7 @@ let walletDB;
 program
     .name('sp')
     .description('CLI for managing Bitcoin silent payments')
-    .version('0.0.4');
+    .version('0.0.5');
 const ensureWalletDir = (walletPath) => {
     if (!fs.existsSync(walletPath)) {
         fs.mkdirSync(walletPath, { recursive: true });

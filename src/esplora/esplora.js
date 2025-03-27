@@ -20,8 +20,6 @@ export class EsploraClient {
         }
         this._network = config.network;
         this.url = new URL(`${config.protocol}://${config.host}${pathPrefix}`).toString();
-        console.log(`Esplora URL: ${this.url}`);
-        console.log(`Network: ${this._network}`);
     }
     get network() {
         switch (this._network) {

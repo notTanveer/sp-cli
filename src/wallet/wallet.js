@@ -210,15 +210,14 @@ export class Wallet {
             } 
             // For P2PKH (legacy - starts with 1, m, n)
             else if (coin.address.startsWith('1') || coin.address.startsWith('m') || coin.address.startsWith('n')) {
-                // Use full non-witness UTXO data for legacy addresses
-                // For simplicity in this fix, still use witnessUtxo but with p2pkh script
-                inputData.witnessUtxo = {
-                    script: payments.p2pkh({
-                        pubkey: this.masterKey.derivePath(path).publicKey,
-                        network: this.network.network
-                    }).output,
-                    value: coin.value
-                };
+                // For legacy addresses, we need to get the full raw transaction
+                const rawTxHex = await getRawTransaction(coin.txid);
+                if (!rawTxHex) {
+                    throw new Error(`Could not fetch raw transaction for ${coin.txid}`);
+                }
+                
+                // Use nonWitnessUtxo instead of witnessUtxo for legacy addresses
+                inputData.nonWitnessUtxo = Buffer.from(rawTxHex, 'hex');
             }
             // For any other format - default to original behavior
             else {
@@ -261,6 +260,18 @@ export class Wallet {
         
         psbt.finalizeAllInputs();
         return psbt.extractTransaction();
+    }
+    async getRawTransaction(txid) {
+        try {
+            const result = await this.request({
+                method: 'GET',
+                url: `${this.url}/tx/${txid}/hex`
+            });
+            return result;
+        } catch (error) {
+            console.error(`Error fetching raw transaction ${txid}: ${error.message}`);
+            throw error;
+        }
     }
     async send(address, amount) {
         const tx = await this.createAndSignTransaction([{ address, amount }]);
