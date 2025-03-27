@@ -369,7 +369,7 @@ export class Wallet {
             }
             
             psbt.addInput(inputData);
-        }send
+        }
         
         // Sign inputs with proper key pairs
         for (let index = 0; index < selectedCoins.length; index++) {
